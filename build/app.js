@@ -1120,6 +1120,7 @@ class GameCoordinator {
     this.extraLivesDisplay = document.getElementById('extra-lives');
     this.fruitDisplay = document.getElementById('fruit-display');
     this.mainMenu = document.getElementById('main-menu-container');
+    this.winScene = document.getElementById('win-container');
     this.gameStartButton = document.getElementById('game-start');
     this.pauseButton = document.getElementById('pause-button');
     this.soundButton = document.getElementById('sound-button');
@@ -1168,6 +1169,8 @@ class GameCoordinator {
     this.scale = this.determineScale(1);
     this.scaledTileSize = this.tileSize * this.scale;
     this.firstGame = true;
+	this.xDown = null;                                                        
+	this.yDown = null;
 
     this.movementKeys = {
       // WASD
@@ -1804,6 +1807,46 @@ class GameCoordinator {
     }
   }
 
+	getTouches(evt) {
+	  return evt.touches ||             // browser API
+	         evt.originalEvent.touches; // jQuery
+	}                                                     
+
+	handleTouchStart(evt) {
+	    const firstTouch = this.getTouches(evt)[0];                                      
+	    this.xDown = firstTouch.clientX;                                      
+	    this.yDown = firstTouch.clientY;                                      
+	};                                                
+
+	handleTouchMove(evt) {
+	    if ( ! this.xDown || ! this.yDown ) {
+	        return;
+	    }
+
+	    var xUp = evt.touches[0].clientX;                                    
+	    var yUp = evt.touches[0].clientY;
+
+	    var xDiff = this.xDown - xUp;
+	    var yDiff = this.yDown - yUp;
+
+	    if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+	        if ( xDiff > 0 ) {
+	      		this.changeDirection("left");
+	        } else {
+	      		this.changeDirection("right");
+	        }                       
+	    } else {
+	        if ( yDiff > 0 ) {
+	      		this.changeDirection("up");
+	        } else { 
+	      		this.changeDirection("down");
+	        }                                                                 
+	    }
+	    /* reset values */
+	    this.xDown = null;
+	    this.yDown = null;                                             
+	};
+
   /**
    * Register listeners for various game sequences
    */
@@ -1818,6 +1861,8 @@ class GameCoordinator {
     window.addEventListener('addTimer', this.addTimer.bind(this));
     window.addEventListener('removeTimer', this.removeTimer.bind(this));
     window.addEventListener('releaseGhost', this.releaseGhost.bind(this));
+    window.addEventListener('touchstart', this.handleTouchStart.bind(this), false);        
+	window.addEventListener('touchmove', this.handleTouchMove.bind(this), false);
 
     const directions = ['up', 'down', 'left', 'right'];
 
@@ -2018,6 +2063,23 @@ class GameCoordinator {
   }
 
   /**
+   * Displays GAME OVER text and displays the menu so players can play again
+   */
+  winOver() {
+	localStorage.setItem('highScore', this.highScore);
+
+	this.fruit.hideFruit();
+    this.leftCover.style.left = '0';
+    this.rightCover.style.right = '0';
+
+	setTimeout(() => {
+		this.winScene.style.opacity = 1;
+		this.gameStartButton.disabled = false;
+		this.winScene.style.visibility = 'visible';
+	}, 1000);
+  }
+
+  /**
    * Handle events related to the number of remaining dots
    */
   dotEaten() {
@@ -2033,7 +2095,7 @@ class GameCoordinator {
       this.speedUpBlinky();
     }
 
-    if (this.remainingDots === 0) {
+    if (this.remainingDots >= 0) {
       this.advanceLevel();
     }
   }
@@ -2083,6 +2145,9 @@ class GameCoordinator {
    * Resets the gameboard and prepares the next level
    */
   advanceLevel() {
+  	this.winOver();
+  	return;
+
     this.allowPause = false;
     this.cutscene = true;
     this.soundManager.setCutscene(this.cutscene);
